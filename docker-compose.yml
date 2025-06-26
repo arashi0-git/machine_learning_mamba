@@ -1,0 +1,47 @@
+services:
+  mamba-ml:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mamba-ml-container
+    volumes:
+      # データディレクトリをマウント
+      - ./sample_data:/app/sample_data
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
+    # GPU使用時（NVIDIA Docker必要）
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    # CPU使用時は上記deployセクションをコメントアウト
+    
+    # インタラクティブモード
+    stdin_open: true
+    tty: true
+    
+    # デフォルトコマンド（オーバーライド可能）
+    command: ["python", "main.py", "--create_sample"]
+
+  # 開発用サービス
+  mamba-ml-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mamba-ml-dev
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]

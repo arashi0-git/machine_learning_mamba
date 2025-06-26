@@ -1,0 +1,58 @@
+# Git関連
+.git
+.gitignore
+
+# Python関連
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+build
+develop-eggs
+dist
+downloads
+eggs
+.eggs
+lib
+lib64
+parts
+sdist
+var
+wheels
+*.egg-info
+.installed.cfg
+*.egg
+
+# 仮想環境
+venv
+env
+ENV
+
+# IDE関連
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS関連
+.DS_Store
+Thumbs.db
+
+# ログファイル
+*.log
+
+# チェックポイント
+checkpoints/*
+!checkpoints/.gitkeep
+
+# 学習結果
+training_results.json
+*.png
+*.jpg
+*.jpeg
+
+# 一時ファイル
+tmp
+temp
