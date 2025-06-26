@@ -1,24 +1,69 @@
 {
   "model_config": {
-    "vocab_size": 20,
+    "vocab_size": 2000,
     "d_model": 128,
     "n_layers": 2,
-    "total_params": 229152
+    "n_heads": 8,
+    "num_experts": 4,
+    "total_params": 2262418
   },
   "training_config": {
-    "epochs": 3,
-    "batch_size": 4,
-    "learning_rate": 0.0001,
+    "epochs": 15,
+    "batch_size": 8,
+    "learning_rate": 0.0005,
     "max_length": 128
   },
   "final_metrics": {
-    "final_loss": 1.044554926455021,
-    "final_perplexity": 3.6744755354376846,
-    "total_time": 1.0610198974609375
+    "final_loss": -1.6680264250437418,
+    "final_balance_loss": -5.527392641703288,
+    "final_perplexity": 0.8511274945735398,
+    "total_time": 39.07857012748718,
+    "avg_step_time": 0.519451395670573,
+    "peak_memory_mb": 0.0,
+    "avg_memory_mb": 0.0
   },
   "data_stats": {
-    "japanese": 1,
-    "english": 2,
-    "python": 5
+    "languages": [
+      "english",
+      "english",
+      "english",
+      "japanese",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english",
+      "english"
+    ]
   }
 }

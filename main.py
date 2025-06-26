@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from hybrid_mamba_model import HybridMambaModel
-from data_loader import DataManager
+from data_loader import ImprovedTextDataset, create_balanced_dataloader
 from trainer import MambaTrainer
 
 
@@ -65,9 +65,9 @@ def main():
     parser = argparse.ArgumentParser(description="Mamba機械学習システム")
     parser.add_argument("--data_dir", type=str, default="sample_data", 
                        help="学習データディレクトリ")
-    parser.add_argument("--epochs", type=int, default=3, 
+    parser.add_argument("--epochs", type=int, default=15, 
                        help="エポック数")
-    parser.add_argument("--batch_size", type=int, default=4, 
+    parser.add_argument("--batch_size", type=int, default=8, 
                        help="バッチサイズ")
     parser.add_argument("--max_length", type=int, default=128, 
                        help="最大シーケンス長")
@@ -79,7 +79,7 @@ def main():
                        help="アテンションヘッド数")
     parser.add_argument("--num_experts", type=int, default=4, 
                        help="MoEエキスパート数")
-    parser.add_argument("--learning_rate", type=float, default=1e-4, 
+    parser.add_argument("--learning_rate", type=float, default=5e-4, 
                        help="学習率")
     parser.add_argument("--create_sample", action="store_true", 
                        help="サンプルデータを作成")
@@ -116,25 +116,14 @@ def main():
         print("--create_sample オプションでサンプルデータを作成できます")
         return
     
-    print("ステップ 1: データの読み込み")
-    data_manager = DataManager()
-    data = data_manager.load_data_from_directory(args.data_dir)
+    print("ステップ 1: データセットの準備")
+    dataset = ImprovedTextDataset(args.data_dir, max_length=args.max_length)
+    dataloader = create_balanced_dataloader(dataset, batch_size=args.batch_size)
     
-    if not any(data.values()):
-        print("エラー: 有効なデータが見つかりませんでした")
-        return
+    vocab_size = dataset.processor.vocab_size
     
-    for lang, texts in data.items():
-        print(f"  {lang}: {len(texts)} テキスト")
-    
-    print("\nステップ 2: データセットの準備")
-    dataloaders = data_manager.prepare_datasets(
-        data, 
-        max_length=args.max_length, 
-        batch_size=args.batch_size
-    )
-    
-    vocab_size = data_manager.tokenizer.vocab_size
+    print(f"  総テキスト数: {len(dataset)}")
+    print(f"  言語分布: {dataset.languages}")
     print(f"  語彙サイズ: {vocab_size}")
     
     print("\nステップ 3: モデルの初期化")
@@ -153,11 +142,11 @@ def main():
     print(f"  学習対象パラメータ数: {trainable_params:,}")
     
     print("\nステップ 4: 訓練の開始")
-    trainer = MambaTrainer(model, device=device)
+    trainer = MambaTrainer(model, device=device, processor=dataset.processor)
     trainer.setup_training(learning_rate=args.learning_rate)
     
     try:
-        trainer.train(dataloaders, epochs=args.epochs)
+        trainer.train(dataloader, epochs=args.epochs)
         
         print("\nステップ 5: モデルのテスト")
         test_output = trainer.evaluate_model(args.test_text, max_length=30)
@@ -194,7 +183,7 @@ def main():
                 "max_length": args.max_length
             },
             "final_metrics": final_metrics,
-            "data_stats": {lang: len(texts) for lang, texts in data.items()}
+            "data_stats": {"languages": dataset.languages}
         }
         
         with open(results_file, "w", encoding="utf-8") as f:

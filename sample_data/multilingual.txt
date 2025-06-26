@@ -1,0 +1,5 @@
+機械学習における cross-validation は重要な技術です。This technique helps evaluate model performance across different data splits.
+
+Deep learning models like transformers have revolutionized NLP. 自然言語処理の分野では transformer アーキテクチャが大きな変革をもたらしました。
+
+Python libraries such as pandas and numpy are essential for data science. データサイエンスでは pandas や numpy といったライブラリが必須です。

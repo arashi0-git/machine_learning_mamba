@@ -400,7 +400,7 @@ class EnhancedMambaLayer(nn.Module):
         x = x + self.drop_path(self.layer_scale1 * mamba_out)
         
         # Attention branch
-        attn_out, _ = self.attention(self.norm2(x), mask)
+        attn_out = self.attention(self.norm2(x), mask)
         x = x + self.drop_path(self.layer_scale2 * attn_out)
         
         # MoE/FFN branch
@@ -464,6 +464,9 @@ class HybridMambaModel(nn.Module):
         
         # アダプティブ損失重み付け
         self.adaptive_loss = AdaptiveLossWeighting(num_tasks=2)
+        
+        # max_seq_len 属性を追加
+        self.max_seq_len = max_seq_len
         
         # パラメータ初期化
         self.apply(self._init_weights)

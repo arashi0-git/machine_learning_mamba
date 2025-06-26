@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: mamba-ml-container
     volumes:
+      # ソースコードをマウント（修正版コードを使用するため）
+      - .:/app
       # データディレクトリをマウント
       - ./sample_data:/app/sample_data
       - ./data:/app/data

@@ -23,12 +23,17 @@ class TrainingMetrics:
         self.memory_usage = []  # メモリ使用量
         
     def add_step(self, loss: float, balance_loss: float, lr: float, step_time: float, memory_mb: float = 0.0):
-        self.train_losses.append(loss)
+        self.train_losses.append(float(loss))
+        # Tensorの場合はfloatに変換
+        if hasattr(balance_loss, 'item'):
+            balance_loss = float(balance_loss.item())
+        else:
+            balance_loss = float(balance_loss)
         self.balance_losses.append(balance_loss)
-        self.learning_rates.append(lr)
-        self.perplexities.append(math.exp(min(loss, 10)))
-        self.step_times.append(step_time)
-        self.memory_usage.append(memory_mb)
+        self.learning_rates.append(float(lr))
+        self.perplexities.append(math.exp(min(float(loss), 10)))
+        self.step_times.append(float(step_time))
+        self.memory_usage.append(float(memory_mb))
     
     def add_epoch_time(self, epoch_time: float):
         self.epoch_times.append(epoch_time)
@@ -81,10 +86,11 @@ class ProgressTracker:
 
 
 class MambaTrainer:
-    def __init__(self, model: nn.Module, device: str = 'cpu'):
+    def __init__(self, model: nn.Module, device: str = 'cpu', processor=None):
         self.model = model
         self.device = device
         self.model.to(device)
+        self.processor = processor  # 語彙処理器を保存
         
         self.optimizer = None
         self.scheduler = None
@@ -175,15 +181,13 @@ class MambaTrainer:
             'perplexity': math.exp(min(avg_loss, 10))
         }
     
-    def train(self, dataloaders: Dict[str, DataLoader], epochs: int = 5, save_dir: str = 'checkpoints'):
+    def train(self, dataloader: DataLoader, epochs: int = 5, save_dir: str = 'checkpoints'):
         os.makedirs(save_dir, exist_ok=True)
         
-        all_dataloaders = list(dataloaders.values())
-        total_steps = sum(len(dl) for dl in all_dataloaders) * epochs
-        self.progress_tracker = ProgressTracker(epochs, sum(len(dl) for dl in all_dataloaders))
+        total_steps = len(dataloader) * epochs
+        self.progress_tracker = ProgressTracker(epochs, len(dataloader))
         
         print(f"開始訓練 - 総エポック数: {epochs}, 総ステップ数: {total_steps}")
-        print(f"データセット: {list(dataloaders.keys())}")
         print(f"デバイス: {self.device}")
         print("-" * 80)
         
@@ -191,19 +195,14 @@ class MambaTrainer:
             print(f"\nエポック {epoch + 1}/{epochs}")
             print("=" * 50)
             
-            epoch_metrics = {}
+            metrics = self.train_epoch(dataloader, epoch)
             
-            for lang, dataloader in dataloaders.items():
-                print(f"\n{lang.upper()}データの学習中...")
-                metrics = self.train_epoch(dataloader, epoch)
-                epoch_metrics[lang] = metrics
-                
-                print(f"{lang} - 損失: {metrics['avg_loss']:.4f}, "
-                      f"パープレキシティ: {metrics['perplexity']:.2f}, "
-                      f"時間: {metrics['epoch_time']:.2f}秒")
+            print(f"損失: {metrics['avg_loss']:.4f}, "
+                  f"パープレキシティ: {metrics['perplexity']:.2f}, "
+                  f"時間: {metrics['epoch_time']:.2f}秒")
             
             checkpoint_path = os.path.join(save_dir, f'checkpoint_epoch_{epoch+1}.pt')
-            self.save_checkpoint(checkpoint_path, epoch, epoch_metrics)
+            self.save_checkpoint(checkpoint_path, epoch, metrics)
             
             self.plot_training_progress(save_dir)
             
@@ -309,23 +308,35 @@ class MambaTrainer:
         plt.close()
     
     def get_final_metrics(self) -> Dict[str, float]:
+        def to_float(value):
+            """TensorやNumPy配列をfloatに変換"""
+            if hasattr(value, 'item'):
+                return float(value.item())
+            return float(value)
+        
         return {
-            'final_loss': self.metrics.get_average_loss(last_n=100),
-            'final_balance_loss': self.get_average_balance_loss(last_n=100),
-            'final_perplexity': self.metrics.get_average_perplexity(last_n=100),
-            'total_time': sum(self.metrics.epoch_times),
-            'avg_step_time': sum(self.metrics.step_times) / len(self.metrics.step_times) if self.metrics.step_times else 0.0,
-            'peak_memory_mb': max(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0,
-            'avg_memory_mb': sum(self.metrics.memory_usage) / len(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0
+            'final_loss': to_float(self.metrics.get_average_loss(last_n=100)),
+            'final_balance_loss': to_float(self.get_average_balance_loss(last_n=100)),
+            'final_perplexity': to_float(self.metrics.get_average_perplexity(last_n=100)),
+            'total_time': to_float(sum(self.metrics.epoch_times)),
+            'avg_step_time': to_float(sum(self.metrics.step_times) / len(self.metrics.step_times) if self.metrics.step_times else 0.0),
+            'peak_memory_mb': to_float(max(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0),
+            'avg_memory_mb': to_float(sum(self.metrics.memory_usage) / len(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0)
         }
     
     def evaluate_model(self, test_text: str, max_length: int = 50) -> str:
         self.model.eval()
         
-        from data_loader import TextTokenizer
-        tokenizer = TextTokenizer()
+        if self.processor is None:
+            # フォールバック：語彙処理器がない場合
+            from data_loader import AdvancedTextProcessor
+            tokenizer = AdvancedTextProcessor()
+            tokenizer.build_vocab([test_text])
+        else:
+            # 訓練時と同じ語彙処理器を使用
+            tokenizer = self.processor
         
-        input_ids = torch.tensor([tokenizer.encode(test_text, max_length=20)], dtype=torch.long).to(self.device)
+        input_ids = torch.tensor([tokenizer.encode(test_text)], dtype=torch.long).to(self.device)
         
         with torch.no_grad():
             generated = self.model.generate(input_ids, max_length=max_length, temperature=0.8)
